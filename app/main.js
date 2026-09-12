@@ -11,19 +11,15 @@ const APP_NAME = 'Qwen3-TTS';
 const UPDATE_INTERVAL_MS = 30 * 60 * 1000; // check every 30 minutes
 
 // Backend project dir (contains server.py & .venv). Stored in userData/settings.json so it
-// survives app updates. Order of resolution: env -> saved settings -> dev fallback -> null.
+// survives app updates. Resolution order: env -> saved settings -> null (user configures in
+// Settings; the app opens straight to the setup flow when it is empty).
 let settings = { projectDir: process.env.QWEN_TTS_PROJECT_DIR || '' };
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
 function loadSettings() {
   try {
     settings = { projectDir: '', ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) };
-  } catch {
-    if (!settings.projectDir) {
-      const devDir = '/Users/wangshuai/Documents/ws/ai/tts';
-      if (fs.existsSync(path.join(devDir, 'server.py'))) settings.projectDir = devDir;
-    }
-  }
+  } catch {}
 }
 
 function saveSettings() {
@@ -49,10 +45,11 @@ async function isServerUp() {
 
 function spawnServer() {
   const dir = settings.projectDir;
+  const server = path.join(dir, 'server.py');
   const python = path.join(dir, '.venv', 'bin', 'python');
+  if (!fs.existsSync(server)) return `server.py not found in ${dir}`;
   if (!fs.existsSync(python)) {
-    send('server-log', `[error] python not found at ${python}\n`);
-    return;
+    return `python not found at ${python} — create the venv first: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`;
   }
   serverProc = spawn(python, ['server.py'], {
     cwd: dir,
@@ -65,12 +62,19 @@ function spawnServer() {
     send('server-log', `\n[backend exited code=${code}]\n`);
     serverProc = null;
   });
+  return null;
 }
 
 ipcMain.handle('ensure-server', async () => {
   if (!settings.projectDir) return { ok: false, needsSetup: true };
   if (await isServerUp()) return { ok: true, alreadyRunning: true };
-  if (!serverProc) spawnServer();
+  if (!serverProc) {
+    const err = spawnServer();
+    if (err) {
+      send('server-log', `[error] ${err}\n`);
+      return { ok: false, error: err };
+    }
+  }
   for (let i = 0; i < 120; i++) { // model-less boot is fast; loading is lazy now
     await new Promise((r) => setTimeout(r, 1000));
     if (await isServerUp()) return { ok: true, started: true };
