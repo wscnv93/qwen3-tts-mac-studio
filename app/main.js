@@ -132,9 +132,12 @@ ipcMain.handle('check-update', () => checkUpdate());
 app.whenReady().then(() => {
   loadSettings();
   // dev mode (`electron .`) shows the Electron binary icon in the Dock;
-  // set ours explicitly — packaged builds already get it from build/icon.icns
-  if (process.platform === 'darwin' && app.dock) {
-    app.dock.setIcon(path.join(__dirname, 'icon_1024.png'));
+  // packaged builds already carry the icon in their bundle, and icon_1024.png
+  // is not inside app.asar — only touch the Dock when running unpacked
+  if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
+    try {
+      app.dock.setIcon(path.join(__dirname, 'icon_1024.png'));
+    } catch {}
   }
   win = new BrowserWindow({
     width: 1120,
