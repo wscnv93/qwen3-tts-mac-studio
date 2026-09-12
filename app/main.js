@@ -7,6 +7,7 @@ const SERVER_PORT = 9880;
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`;
 // GitHub repo for release update checks
 const UPDATE_REPO = 'wscnv93/qwen3-tts-mac-studio';
+const APP_NAME = 'Qwen3-TTS';
 const UPDATE_INTERVAL_MS = 30 * 60 * 1000; // check every 30 minutes
 
 // Backend project dir (contains server.py & .venv). Stored in userData/settings.json so it

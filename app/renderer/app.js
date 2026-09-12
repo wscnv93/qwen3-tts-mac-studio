@@ -1,6 +1,6 @@
 /* Qwen3-TTS Mac Studio — renderer logic (light theme, zh/en i18n) */
 const API = 'http://127.0.0.1:9880';
-const UPDATE_REPO = 'your-github-name/qwen3-tts-mac-studio';
+const UPDATE_REPO = 'wscnv93/qwen3-tts-mac-studio';
 const $ = (id) => document.getElementById(id);
 
 /* ================= i18n ================= */
