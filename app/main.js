@@ -150,7 +150,8 @@ async function checkUpdate() {
     if (r.status === 404) return { updateAvailable: false, error: 'no releases yet' };
     if (!r.ok) return { updateAvailable: false, error: `HTTP ${r.status}` };
     const j = await r.json();
-    const latest = j.tag_name || '';
+    // strip the tag's leading "v" once — UI code adds its own "v" when displaying
+    const latest = (j.tag_name || "").replace(/^v/, "");
     const current = app.getVersion();
     const dmg = (j.assets || []).find((a) => a.name.endsWith('.dmg'));
     const zip = (j.assets || []).find((a) => a.name.endsWith('.zip'));
