@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / Electron
+node_modules/
+app/dist/
+app/electron-dev.log
+
+# Models & generated data (several GB — never commit)
+models/
+voices/
+*.wav
+*.log
+.DS_Store

@@ -1,0 +1,11 @@
+# Python 3.11 recommended
+# macOS (Apple Silicon): pip installs the CPU/MPS build of torch by default.
+# CUDA users: install torch per https://pytorch.org first, then the rest.
+qwen-tts>=1.0.0
+modelscope>=1.20
+huggingface_hub>=0.26
+soundfile>=0.12
+numpy
+fastapi>=0.110
+uvicorn[standard]>=0.29
+torch>=2.3

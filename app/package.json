@@ -1,0 +1,49 @@
+{
+  "name": "qwen3-tts-mac-studio",
+  "productName": "Qwen3-TTS",
+  "version": "1.0.0",
+  "description": "Native macOS client for Qwen3-TTS: speech synthesis, voice cloning and voice presets",
+  "main": "main.js",
+  "author": "Qwen3-TTS Mac Studio contributors",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac dir",
+    "dist:dmg": "electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "org.qwen3tts.studio",
+    "productName": "Qwen3-TTS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Record reference audio for voice cloning"
+      }
+    },
+    "dmg": {
+      "title": "Qwen3-TTS ${version}"
+    }
+  }
+}
