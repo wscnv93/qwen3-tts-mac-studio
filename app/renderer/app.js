@@ -27,7 +27,7 @@ lbl_target_text: '要合成的文本', ph_target_text: '用克隆的音色说这
     model_cv_desc: '用途:内置 9 种音色、10 种语言、风格指令控制。"预置音色"页必需;缺失时该页无法合成。约 3.9GB。',
     model_clone_desc: '用途:用 3 秒参考音频克隆任意音色,并管理你的音色预设。"声音克隆"与"我的音色"页必需。约 3.9GB。',
     btn_browse: '浏览…', btn_save: '保存', btn_download: '下载模型',
-    models_hint: '两个模型按需下载即可,只下载你要用的。路径留空时默认下载到用户数据目录;填写自定义路径后下载按钮将隐藏(请自行确保路径内模型完整)。',
+    models_hint: '两个模型按需下载即可,只下载你要用的。路径留空时下载到默认目录(应用数据目录);也可以自行指定目录,下载会写入该目录。',
     set_update: '应用更新', current_version: '当前版本:', btn_check_update: '检查更新',
     btn_open_releases: '打开 Releases 页面', update_hint: '应用启动时及每 30 分钟自动检查新版本,发现新版本会在右上角提示。下载请前往 Releases 页面。',
     backend_log: '后端日志',
@@ -78,7 +78,7 @@ lbl_target_text: 'Text to synthesize', ph_target_text: 'What the cloned voice sh
     model_cv_desc: 'Purpose: 9 built-in voices, 10 languages and style instruct control. Required by the "Preset Voices" tab. ~3.9GB.',
     model_clone_desc: 'Purpose: clone any voice from ~3s of reference audio and manage your voice presets. Required by "Voice Clone" and "My Voices" tabs. ~3.9GB.',
     btn_browse: 'Browse…', btn_save: 'Save', btn_download: 'Download model',
-    models_hint: 'Download only the model you need. Empty path downloads to the user data folder by default; once a custom path is set the download button hides (make sure the model is complete yourself).',
+    models_hint: 'Download only the model you need. An empty path downloads to the default app-data folder; a custom path receives the download directly (the folder is created if needed).',
     set_update: 'App Update', current_version: 'Current version:', btn_check_update: 'Check for updates',
     btn_open_releases: 'Open Releases page', update_hint: 'The app checks for updates at launch and every 30 minutes. Download new versions from the Releases page.',
     backend_log: 'Backend log',
@@ -759,19 +759,16 @@ function refreshModelChips() {
     // backend readiness arrives on the 5s poll, possibly after the settings page
     // is already open — fill the effective path as soon as we learn it
     if (info && info.ready && info.path && el && !el.value.trim()) el.value = info.path;
-    const pathFilled = el && !!el.value.trim();
-    if (info && info.ready) {
-      chip.className = 'chip ready';
-      chip.textContent = t('status_ready');
-      $(d.dlRow).style.display = 'none';
-    } else if (pathFilled) {
-      chip.className = 'chip missing';
-      chip.textContent = t('status_missing');
-      $(d.dlRow).style.display = 'none'; // user manages the model themselves
-    } else {
+    if (!info || !info.ready) {
+      // always offer the download when the model is not ready — the server
+      // downloads into the configured directory (creating it if needed)
       chip.className = 'chip missing';
       chip.textContent = t('status_missing');
       $(d.dlRow).style.display = 'flex';
+    } else {
+      chip.className = 'chip ready';
+      chip.textContent = t('status_ready');
+      $(d.dlRow).style.display = 'none';
     }
   }
 }
