@@ -43,16 +43,29 @@ async function isServerUp() {
   }
 }
 
+function bundledServerPath() {
+  if (!app.isPackaged) return null;
+  const p = path.join(process.resourcesPath, 'backend', 'server', 'server');
+  return fs.existsSync(p) ? p : null;
+}
+
 function spawnServer() {
-  const dir = settings.projectDir;
-  const server = path.join(dir, 'server.py');
-  const python = path.join(dir, '.venv', 'bin', 'python');
-  if (!fs.existsSync(server)) return `server.py not found in ${dir}`;
-  if (!fs.existsSync(python)) {
-    return `python not found at ${python} — create the venv first: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`;
+  const bundled = bundledServerPath();
+  let cmd, args, cwd;
+  if (bundled) {
+    cmd = bundled; args = []; cwd = path.dirname(bundled);
+  } else {
+    const dir = settings.projectDir;
+    const server = path.join(dir, 'server.py');
+    const python = path.join(dir, '.venv', 'bin', 'python');
+    if (!fs.existsSync(server)) return `server.py not found in ${dir}`;
+    if (!fs.existsSync(python)) {
+      return `python not found at ${python} — create the venv first: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`;
+    }
+    cmd = python; args = ['server.py']; cwd = dir;
   }
-  serverProc = spawn(python, ['server.py'], {
-    cwd: dir,
+  serverProc = spawn(cmd, args, {
+    cwd,
     env: { ...process.env, QWEN_TTS_PORT: String(SERVER_PORT) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -66,7 +79,7 @@ function spawnServer() {
 }
 
 ipcMain.handle('ensure-server', async () => {
-  if (!settings.projectDir) return { ok: false, needsSetup: true };
+  if (!settings.projectDir && !bundledServerPath()) return { ok: false, needsSetup: true };
   if (await isServerUp()) return { ok: true, alreadyRunning: true };
   if (!serverProc) {
     const err = spawnServer();

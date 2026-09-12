@@ -13,7 +13,6 @@ import io
 import json
 import os
 import re
-import subprocess
 import sys
 import threading
 import time
@@ -177,39 +176,52 @@ def languages_list() -> list:
 
 _download = {"state": "idle", "model": None, "source": None, "percent": 0, "message": "", "target": ""}
 _dl_lock = threading.Lock()
-_PERCENT_RE = re.compile(r"(\d+)%")
-
-
-def _bin_dir() -> str:
-    return os.path.dirname(sys.executable)
 
 
 def _download_worker(key: str, source: str, target: str) -> None:
     try:
-        if source == "modelscope":
-            exe = os.path.join(_bin_dir(), "modelscope")
-            cmd = [exe, "download", "--model", MODEL_IDS[key], "--local_dir", target]
-        else:
-            exe = os.path.join(_bin_dir(), "hf")
-            if not os.path.exists(exe):
-                exe = os.path.join(_bin_dir(), "huggingface-cli")
-            cmd = [exe, "download", MODEL_IDS[key], "--local-dir", target]
-        env = dict(os.environ)
-        if source == "hf":
-            env["HF_ENDPOINT"] = CONFIG.get("hf_endpoint") or "https://huggingface.co"
         _download.update(message="starting", percent=0)
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
-        for line in proc.stdout:
-            m = _PERCENT_RE.search(line)
-            if m:
-                _download["percent"] = min(int(m.group(1)), 100)
-            _download["message"] = line.strip()[-160:]
-        proc.wait()
-        if proc.returncode == 0 and os.path.exists(os.path.join(target, "model.safetensors")):
-            _download.update(state="done", percent=100, message="download complete")
-            print(f"[download] {key} ({source}) -> {target} complete")
+        state = {"total": 0, "done": 0}
+
+        def report() -> None:
+            pct = int(state["done"] * 100 / state["total"]) if state["total"] else 0
+            _download["percent"] = min(max(_download["percent"], pct), 99)
+
+        if source == "modelscope":
+            from modelscope.hub.snapshot_download import snapshot_download as ms_dl
+
+            class _MsCallback:
+                # instantiated by modelscope per file as (filename, file_size)
+                def __init__(self, filename: str, file_size: int):
+                    state["total"] += file_size or 0
+
+                def update(self, size: int) -> None:
+                    state["done"] += size
+                    report()
+
+                def end(self) -> None:
+                    pass
+
+            ms_dl(MODEL_IDS[key], local_dir=target, progress_callbacks=[_MsCallback])
         else:
-            _download.update(state="error", message=f"download failed (exit {proc.returncode})")
+            from huggingface_hub import snapshot_download as hf_dl
+            from tqdm import tqdm as base_tqdm
+
+            class _HfTqdm(base_tqdm):
+                def __init__(self, *args, **kwargs):
+                    kwargs.setdefault("file", open(os.devnull, "w"))
+                    super().__init__(*args, **kwargs)
+                    state["total"] += self.total or 0
+
+                def update(self, n=1):  # noqa: N803
+                    super().update(n)
+                    state["done"] += max(n, 0)
+                    report()
+
+            hf_dl(MODEL_IDS[key], local_dir=target, tqdm_class=_HfTqdm,
+                  endpoint=CONFIG.get("hf_endpoint") or None)
+        _download.update(state="done", percent=100, message="download complete")
+        print(f"[download] {key} ({source}) -> {target} complete")
     except Exception as e:  # noqa: BLE001
         _download.update(state="error", message=str(e)[:200])
 

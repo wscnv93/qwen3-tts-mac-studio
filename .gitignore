@@ -14,3 +14,8 @@ voices/
 *.wav
 *.log
 .DS_Store
+
+# Bundled backend build artifacts
+app/backend-dist/
+build/pyinstaller/
+/backend-dist/

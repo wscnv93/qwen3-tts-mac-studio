@@ -1,7 +1,7 @@
 {
   "name": "qwen3-tts-mac-studio",
   "productName": "Qwen3-TTS",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Native macOS client for Qwen3-TTS: speech synthesis, voice cloning and voice presets",
   "main": "main.js",
   "author": "Qwen3-TTS Mac Studio contributors",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac dir",
-    "dist:dmg": "electron-builder --mac dmg zip"
+    "dist:dmg": "bash ../build-backend.sh && electron-builder --mac dmg zip"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -22,6 +22,12 @@
     "directories": {
       "output": "dist"
     },
+    "extraResources": [
+      {
+        "from": "backend-dist",
+        "to": "backend"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",
