@@ -21,7 +21,8 @@ lbl_target_text: '要合成的文本', ph_target_text: '用克隆的音色说这
     preview_title: '音色试听', preview_hint: '内置音色播报试听短句;克隆预设播放它的参考音频',
     preview_text: '你好,这是我的声音,很高兴认识你。',
     saved_presets: '已保存的预设音色', btn_refresh: '刷新',
-    set_general: '通用', set_backend: '后端服务目录', backend_hint: '指向包含 server.py 与 .venv 的项目目录(即后端代码所在位置)。修改后需重启应用生效。开源用户:克隆本仓库后在此填入仓库路径。',
+    set_general: '通用', set_backend: '后端服务目录', set_audio: '音频保存',
+    audio_hint: '生成音频的默认保存目录(此设置独立存储,不随版本升级变化)。留空:每次保存弹出选择窗口;设置后:点击「保存 WAV」直接存入该目录,文件名自动生成。', backend_hint: '指向包含 server.py 与 .venv 的项目目录(即后端代码所在位置)。修改后需重启应用生效。开源用户:克隆本仓库后在此填入仓库路径。',
     set_models: '模型管理', model_cv_name: '预置音色模型', model_clone_name: '音色克隆模型',
     model_cv_desc: '用途:内置 9 种音色、10 种语言、风格指令控制。"预置音色"页必需;缺失时该页无法合成。约 3.9GB。',
     model_clone_desc: '用途:用 3 秒参考音频克隆任意音色,并管理你的音色预设。"声音克隆"与"我的音色"页必需。约 3.9GB。',
@@ -42,6 +43,7 @@ lbl_target_text: '要合成的文本', ph_target_text: '用克隆的音色说这
     toast_mic_fail: '无法访问麦克风', toast_rec_done: '录音完成!记得填写你刚才说了什么(逐字稿)',
     toast_rec_fail: '录音处理失败', toast_instruct_ignored: '克隆预设不支持风格指令,本次已忽略',
     toast_config_saved: '配置已保存', toast_dl_started: '下载已开始', toast_dl_fail: '下载失败',
+    toast_audio_saved: '已保存,立即生效',
     toast_up_to_date: '已是最新版本', toast_update_found: '发现新版本', toast_update_check_fail: '检查更新失败',
     toast_dir_saved: '已保存,重启应用后生效', toast_model_saved: '模型路径已保存',
     status_ready: '就绪', status_missing: '未就绪', status_downloading: '下载中',
@@ -69,7 +71,8 @@ lbl_target_text: 'Text to synthesize', ph_target_text: 'What the cloned voice sh
     preview_title: 'Voice preview', preview_hint: 'Built-in voices speak a short sample; cloned presets play their reference audio',
     preview_text: 'Hello, this is my voice. Nice to meet you.',
     saved_presets: 'Saved voice presets', btn_refresh: 'Refresh',
-    set_general: 'General', set_backend: 'Backend directory', backend_hint: 'Point to the project folder containing server.py and .venv (the backend code). Restart the app to apply. Open-source users: clone this repo and set the path here.',
+    set_general: 'General', set_backend: 'Backend directory', set_audio: 'Audio Saving',
+    audio_hint: 'Default directory for saved WAVs (stored independently, survives app updates). Leave empty to ask every time; when set, Save WAV writes here directly with an auto-generated filename.', backend_hint: 'Point to the project folder containing server.py and .venv (the backend code). Restart the app to apply. Open-source users: clone this repo and set the path here.',
     set_models: 'Models', model_cv_name: 'Preset Voice Model', model_clone_name: 'Voice Clone Model',
     model_cv_desc: 'Purpose: 9 built-in voices, 10 languages and style instruct control. Required by the "Preset Voices" tab. ~3.9GB.',
     model_clone_desc: 'Purpose: clone any voice from ~3s of reference audio and manage your voice presets. Required by "Voice Clone" and "My Voices" tabs. ~3.9GB.',
@@ -90,6 +93,7 @@ lbl_target_text: 'Text to synthesize', ph_target_text: 'What the cloned voice sh
     toast_mic_fail: 'Cannot access microphone', toast_rec_done: 'Recording done! Remember to fill in the transcript.',
     toast_rec_fail: 'Recording processing failed', toast_instruct_ignored: 'Cloned presets do not support style instructs — ignored this time',
     toast_config_saved: 'Config saved', toast_dl_started: 'Download started', toast_dl_fail: 'Download failed',
+    toast_audio_saved: 'Saved — applies immediately',
     toast_up_to_date: 'You are on the latest version', toast_update_found: 'New version available', toast_update_check_fail: 'Update check failed',
     toast_dir_saved: 'Saved — restart the app to apply', toast_model_saved: 'Model path saved',
     status_ready: 'Ready', status_missing: 'Missing', status_downloading: 'Downloading',
@@ -715,6 +719,7 @@ async function initSettings() {
   }
   const s = await window.api.getSettings();
   if (document.activeElement !== $('cfgProjectDir')) $('cfgProjectDir').value = s.projectDir || '';
+  if (document.activeElement !== $('cfgAudioDir')) $('cfgAudioDir').value = s.audioSaveDir || '';
   try {
     const j = await (await fetch(API + '/config')).json();
     if (document.activeElement !== $('cfgCvPath')) $('cfgCvPath').value = j.config.custom_voice_model_path || '';
@@ -778,6 +783,15 @@ $('cfgBrowseDir').onclick = async () => {
 $('cfgSaveDir').onclick = async () => {
   await window.api.saveSettings({ projectDir: $('cfgProjectDir').value.trim() });
   toast(t('toast_dir_saved'), true);
+};
+
+$('cfgBrowseAudio').onclick = async () => {
+  const dir = await window.api.pickDirectory(t('cfg_select_dir'));
+  if (dir) $('cfgAudioDir').value = dir;
+};
+$('cfgSaveAudio').onclick = async () => {
+  await window.api.saveSettings({ audioSaveDir: $('cfgAudioDir').value.trim() });
+  toast(t('toast_audio_saved'), true);
 };
 
 async function saveModelPaths() {

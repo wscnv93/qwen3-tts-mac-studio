@@ -99,10 +99,17 @@ ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 ipcMain.handle('app-version', () => app.getVersion());
 ipcMain.handle('app-is-packaged', () => app.isPackaged);
 
-// save synthesized audio through a native save dialog
+// save synthesized audio: straight into audioSaveDir when configured, otherwise a native dialog
 ipcMain.handle('save-wav', async (_e, arrayBuffer) => {
+  const fname = `qwen3-tts-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.wav`;
+  const dir = settings.audioSaveDir;
+  if (dir && fs.existsSync(dir)) {
+    const fp = path.join(dir, fname);
+    fs.writeFileSync(fp, Buffer.from(arrayBuffer));
+    return { saved: true, filePath: fp };
+  }
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
-    defaultPath: path.join(app.getPath('downloads'), `qwen3-tts-${Date.now()}.wav`),
+    defaultPath: path.join(app.getPath('downloads'), fname),
     filters: [{ name: 'WAV audio', extensions: ['wav'] }],
   });
   if (canceled || !filePath) return { saved: false };
