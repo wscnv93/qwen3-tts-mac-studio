@@ -276,8 +276,12 @@ async function boot() {
   if (res.ok) { await refreshStatus(); await initOptions(); await loadVoices(); }
   else {
     setStatus('off', t('status_off'));
+    if (res.needsSetup) {
+      backendSetupRequired = true;
+      applyBackendCardVisibility();
+      switchView('settings');
+    }
     toast(res.needsSetup ? t('toast_needs_setup') : (res.error || t('toast_boot_fail')));
-    if (res.needsSetup) switchView('settings');
   }
 }
 window.api.onLog((line) => {
@@ -694,6 +698,15 @@ async function loadVoices() {
 
 /* ================= settings ================= */
 let settingsLoaded = false;
+let appPackaged = null;
+let backendSetupRequired = false;
+
+/* backend directory card is a developer/power-user feature: hidden in release
+   builds unless the backend is unconfigured and setup is actually required */
+function applyBackendCardVisibility() {
+  const card = $('backendCard');
+  if (card && appPackaged !== null) card.style.display = (appPackaged && !backendSetupRequired) ? 'none' : 'block';
+}
 
 async function initSettings() {
   if (!settingsLoaded) {
@@ -709,6 +722,14 @@ async function initSettings() {
     $('cfgCvId').textContent = MODEL_IDS.custom_voice + '  →  ' + j.defaults.custom_voice;
     $('cfgCloneId').textContent = MODEL_IDS.clone + '  →  ' + j.defaults.clone;
     await refreshStatus();
+    // show the effective location when a model is ready but no custom path is set,
+    // so the field reflects where the weights actually live instead of an empty box
+    for (const [inp, key] of [['cfgCvPath', 'custom_voice'], ['cfgClonePath', 'clone']]) {
+      const el = $(inp);
+      if (!el.value.trim() && healthCache?.models?.[key]?.ready && healthCache.models[key].path) {
+        el.value = healthCache.models[key].path;
+      }
+    }
     refreshModelChips();
   } catch {}
 }
@@ -843,6 +864,9 @@ $('updateBadge').onclick = () => window.api.openExternal(`https://github.com/${U
   initPlayers();
   applyLang();
   window.api.appVersion().then((v) => { document.querySelector('.side-foot').textContent = 'v' + v; }).catch(() => {});
+  if (window.api.isPackaged) {
+    window.api.isPackaged().then((p) => { appPackaged = !!p; applyBackendCardVisibility(); }).catch(() => {});
+  }
   $('pText').value = LANG === 'zh' ? '你好,欢迎使用 Qwen3-TTS 语音合成!' : 'Hello, welcome to Qwen3-TTS speech synthesis!';
   setStatus('wait', t('status_wait'));
   $('logPre').textContent = '';

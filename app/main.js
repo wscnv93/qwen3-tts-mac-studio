@@ -97,6 +97,18 @@ ipcMain.handle('pick-directory', async (_e, title) => {
 });
 ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 ipcMain.handle('app-version', () => app.getVersion());
+ipcMain.handle('app-is-packaged', () => app.isPackaged);
+
+// save synthesized audio through a native save dialog
+ipcMain.handle('save-wav', async (_e, arrayBuffer) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    defaultPath: path.join(app.getPath('downloads'), `qwen3-tts-${Date.now()}.wav`),
+    filters: [{ name: 'WAV audio', extensions: ['wav'] }],
+  });
+  if (canceled || !filePath) return { saved: false };
+  fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+  return { saved: true, filePath };
+});
 
 // ---- update check via GitHub Releases ----
 function semverNewer(remote, local) {

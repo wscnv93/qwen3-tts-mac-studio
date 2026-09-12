@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   pickDirectory: (title) => ipcRenderer.invoke('pick-directory', title),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   appVersion: () => ipcRenderer.invoke('app-version'),
+  isPackaged: () => ipcRenderer.invoke('app-is-packaged'),
   checkUpdate: () => ipcRenderer.invoke('check-update'),
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, info) => cb(info)),
 });
