@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac dir",
-    "dist:dmg": "electron-builder --mac dmg"
+    "dist:dmg": "electron-builder --mac dmg zip"
   },
   "devDependencies": {
     "electron": "^33.2.0",
