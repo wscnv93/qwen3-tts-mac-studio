@@ -45,6 +45,7 @@ lbl_target_text: '要合成的文本', ph_target_text: '用克隆的音色说这
     toast_config_saved: '配置已保存', toast_dl_started: '下载已开始', toast_dl_fail: '下载失败',
     toast_audio_saved: '已保存,立即生效',
     toast_up_to_date: '已是最新版本', toast_update_found: '发现新版本', toast_update_check_fail: '检查更新失败',
+    toast_update_fail: '自动更新失败', toast_update_ready: '下载完成,正在安装并重启…', updating_progress: '更新中',
     toast_dir_saved: '已保存,重启应用后生效', toast_model_saved: '模型路径已保存',
     status_ready: '就绪', status_missing: '未就绪', status_downloading: '下载中',
     dl_complete: '下载完成', cfg_select_dir: '选择目录',
@@ -95,6 +96,7 @@ lbl_target_text: 'Text to synthesize', ph_target_text: 'What the cloned voice sh
     toast_config_saved: 'Config saved', toast_dl_started: 'Download started', toast_dl_fail: 'Download failed',
     toast_audio_saved: 'Saved — applies immediately',
     toast_up_to_date: 'You are on the latest version', toast_update_found: 'New version available', toast_update_check_fail: 'Update check failed',
+    toast_update_fail: 'Auto-update failed', toast_update_ready: 'Downloaded — installing and restarting…', updating_progress: 'Updating',
     toast_dir_saved: 'Saved — restart the app to apply', toast_model_saved: 'Model path saved',
     status_ready: 'Ready', status_missing: 'Missing', status_downloading: 'Downloading',
     dl_complete: 'Download complete', cfg_select_dir: 'Choose directory',
@@ -859,11 +861,12 @@ $('cfgCvDownload').onclick = (e) => startModelDownload('custom_voice', 'cfgCvSou
 $('cfgCloneDownload').onclick = (e) => startModelDownload('clone', 'cfgCloneSource', 'cfgCloneProgress', 'cfgClonePct', e.currentTarget);
 
 /* ================= app update ================= */
+const updateBadgeText = (txt) => { $('updateBadgeText').textContent = txt; };
 async function runUpdateCheck(explicit) {
   const res = await window.api.checkUpdate();
   if (res.updateAvailable) {
     $('updateBadge').classList.add('show');
-    $('updateBadgeText').textContent = `${t('updating_badge')} · v${res.latest}`;
+    updateBadgeText(`${t('updating_badge')} · v${res.latest}`);
     $('verLatest').textContent = `→ ${LANG === 'zh' ? '最新' : 'latest'} v${res.latest}`;
     if (explicit) toast(`${t('toast_update_found')}: v${res.latest}`, true);
   } else {
@@ -875,7 +878,22 @@ async function runUpdateCheck(explicit) {
 }
 $('btnCheckUpdate').onclick = () => { setLoading($('btnCheckUpdate'), true); runUpdateCheck(true).finally(() => setLoading($('btnCheckUpdate'), false)); };
 $('btnOpenReleases').onclick = () => window.api.openExternal(`https://github.com/${UPDATE_REPO}/releases`);
-$('updateBadge').onclick = () => window.api.openExternal(`https://github.com/${UPDATE_REPO}/releases`);
+
+// click the badge = in-app auto update: download → swap bundle → relaunch
+$('updateBadge').onclick = async () => {
+  updateBadgeText(`${t('updating_progress')}…`);
+  const res = await window.api.applyUpdate();
+  if (res.ok) {
+    updateBadgeText(t('toast_update_ready'));
+  } else {
+    updateBadgeText(`${t('updating_badge')}`);
+    toast(`${t('toast_update_fail')}: ${res.error}`);
+    if (String(res.error).includes('missing')) window.api.openExternal(`https://github.com/${UPDATE_REPO}/releases`);
+  }
+};
+if (window.api.onUpdateProgress) {
+  window.api.onUpdateProgress((pct) => updateBadgeText(`${t('updating_progress')} ${pct}%`));
+}
 
 /* ================= boot ================= */
 (async () => {

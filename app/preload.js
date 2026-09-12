@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   appVersion: () => ipcRenderer.invoke('app-version'),
   isPackaged: () => ipcRenderer.invoke('app-is-packaged'),
   checkUpdate: () => ipcRenderer.invoke('check-update'),
+  applyUpdate: () => ipcRenderer.invoke('apply-update'),
+  onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, pct) => cb(pct)),
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, info) => cb(info)),
 });

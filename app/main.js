@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -140,10 +140,12 @@ async function checkUpdate() {
     const latest = j.tag_name || '';
     const current = app.getVersion();
     const dmg = (j.assets || []).find((a) => a.name.endsWith('.dmg'));
+    const zip = (j.assets || []).find((a) => a.name.endsWith('.zip'));
     return {
       updateAvailable: semverNewer(latest, current),
       current, latest, url: j.html_url,
       dmgUrl: dmg ? dmg.browser_download_url : null,
+      zipUrl: zip ? zip.browser_download_url : null,
       notes: (j.body || '').slice(0, 800),
     };
   } catch (e) {
@@ -152,6 +154,63 @@ async function checkUpdate() {
 }
 
 ipcMain.handle('check-update', () => checkUpdate());
+
+// ---- in-app auto update: download the new .app zip, swap the bundle, relaunch ----
+// unsigned app, so Squirrel-style updates are unavailable; we replace the bundle
+// ourselves. Works when the app sits in a user-writable location (e.g. /Applications).
+async function downloadUpdateZip(url, dest) {
+  const res = await net.fetch(url, { redirect: 'follow' }); // Chromium stack: honors system proxy
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length')) || 0;
+  const reader = res.body.getReader();
+  const out = fs.createWriteStream(dest);
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.length;
+    out.write(Buffer.from(value));
+    if (total) send('update-progress', Math.round((received / total) * 100));
+  }
+  await new Promise((r) => out.end(r));
+}
+
+ipcMain.handle('apply-update', async () => {
+  try {
+    const info = await checkUpdate();
+    if (!info.updateAvailable) return { ok: false, error: 'already up to date' };
+    if (!info.zipUrl) return { ok: false, error: 'update package missing (no .zip asset in release)' };
+    const tmp = app.getPath('temp');
+    const zipPath = path.join(tmp, `qwen3-tts-update-${info.latest}.zip`);
+    const extractDir = path.join(tmp, `qwen3-tts-update-${info.latest}`);
+    fs.rmSync(extractDir, { recursive: true, force: true });
+    fs.mkdirSync(extractDir, { recursive: true });
+    send('update-progress', 0);
+    await downloadUpdateZip(info.zipUrl, zipPath);
+    send('update-progress', 100);
+    await new Promise((resolve, reject) => {
+      const p = spawn('/usr/bin/ditto', ['-x', '-k', zipPath, extractDir]);
+      p.on('exit', (c) => (c === 0 ? resolve() : reject(new Error(`unzip failed (${c})`))));
+      p.on('error', reject);
+    });
+    const extracted = fs.readdirSync(extractDir).find((n) => n.endsWith('.app'));
+    if (!extracted) return { ok: false, error: 'update package invalid' };
+    const appPath = path.dirname(path.dirname(path.dirname(process.execPath)));
+    const newApp = path.join(extractDir, extracted);
+    const script = `
+      sleep 1
+      rm -rf "${appPath}.old"
+      if mv "${appPath}" "${appPath}.old"; then
+        mv "${newApp}" "${appPath}" && rm -rf "${appPath}.old" "${extractDir}" "${zipPath}" && open "${appPath}" || mv "${appPath}.old" "${appPath}"
+      fi
+    `;
+    spawn('/bin/sh', ['-c', script], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => app.quit(), 500);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 
 app.whenReady().then(() => {
   loadSettings();
