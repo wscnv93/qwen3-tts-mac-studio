@@ -753,7 +753,11 @@ function refreshModelChips() {
     const chip = $(d.chip);
     if (!chip) continue;
     const info = healthCache && healthCache.models && healthCache.models[d.key];
-    const pathFilled = !!$(d.pathInput).value.trim();
+    const el = $(d.pathInput);
+    // backend readiness arrives on the 5s poll, possibly after the settings page
+    // is already open — fill the effective path as soon as we learn it
+    if (info && info.ready && info.path && el && !el.value.trim()) el.value = info.path;
+    const pathFilled = el && !!el.value.trim();
     if (info && info.ready) {
       chip.className = 'chip ready';
       chip.textContent = t('status_ready');
